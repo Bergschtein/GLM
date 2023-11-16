@@ -37,18 +37,18 @@ library(GGally)
 ggpairs(data = dataset, mapping = aes(col = gender), columns = c("social",
     "raven", "math"), legend = 1)
 ```
-In the plot above, we see that the variables social, raven and math are plotted against each other distributed on gender. Social is a categorical variable with four levels. One of the categories in social have a higher frequency than the others, and one of the categories seems to have a higher mean value of raven than the others. Math seems to be evenly distributed between categories. Math and raven are continuous variables. Raven seems to be similar distributed among genders, while math seems to have a higher mean for girls. There is a significant correlation between raven and math. 
-
+In the plot above, we see that the variables `social`, `raven` and `math` are plotted against each other distributed on `gender`. `Social` is a categorical variable with four levels. One of the categories in `social` have a higher frequency than the others, and one of the categories seems to have a higher mean value of `raven` than the others. `Math` seems to be evenly distributed between categories. `Math` and `raven` are continuous variables. `Raven` seems to be similar distributed at each level of `gender`, while `math` seems to have a higher mean for girls. There is a significant correlation between `raven` and `math`. 
 ```{r}
 #Fitting a linear model
 mod = lm(math ~ raven + gender, data=dataset)
 summary(mod)
 ```
-We have a linear model where $Y_k$ is the response variable, $X_k$ are the k-th row in the design matrix containing the covariates, $\beta$ is a vector of coefficient that are found when fitting the model and $\epsilon_k$ are the error of the model
+We have a linear model where $Y_k$ is the response variable, $X_k$ are the k-th row in the design matrix containing the covariates, $\beta$ is a vector of coefficient that are found when fitting the model and $\varepsilon_k$ are the error of the model
 
-In the summary output above, we can see that both of the covariates are significant. Expected math score increases with raven and if the gender is girl. This is consistent with what we saw in the plot obtained from using the ggpairs plot function.
+In the summary output above, we can see that both of the covariates are significant. Expected `math` score increases with `raven` and if the `gender` is girl. This is consistent with what we saw in the plot obtained from using `ggpairs()`.
 
-In this model, we are investigating the linear relationship between the covariates, raven and gender, and the response, math.
+
+In this model, we are investigating the linear relationship between the covariates, `raven` and `gender`, and the response, `math`.
 
 ## b)
 The components of the random intercept model are:
@@ -70,13 +70,13 @@ library(lme4)
 fitRI1 <- lmer(math ~ raven + gender + (1 | school), data = dataset)
 summary(fitRI1)
 ```
-In the summary output above, we can see that the parameter estimates for `raven` and `gender` are similar to the estimates in the summary output in a). The deviation is less than one standard deviation. This means that adding school as random intercept has little effect on the parameter estimates. 
+In the summary output above, we can see that the parameter estimates for `raven` and `gender` are similar to the estimates in the summary output in a). The deviation is less than one standard deviation. This means that adding `school` as random intercept has little effect on the parameter estimates. 
 
-As in **a)**, we can see that expected math score increases with `raven` and if the `gender` is girl.
+As in **a)**, we can see that expected math score increases with raven test results and if the gender is girl.
 
 There are no $p$-values, and this is also default for the `lmer` function. The reason is that the random effects complicates finding the $p$-value, it is not possible to find a analytical solution with a finite number of observations, we have to approximate.
 
-The test $H_0$ : $\beta_{\text{raven}}=0$ against $H_1$ : $\beta_{\text{raven}}\neq0$ is performed using the anova function.
+The test $H_0$ : $\beta_{raven}=0$ against $H_1$ : $\beta_{raven}\neq0$ is performed using the `anova` function.
 ```{r}
 #Fitting a linear mixed model without raven as covariate
 fitRI2 <- lmer(math ~ gender + (1 | school), data = dataset)
