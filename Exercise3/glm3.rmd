@@ -1,0 +1,310 @@
+---
+subtitle: "TMA4315 Generalized Linear Models"
+title: "Compulsory exercise 3: Group 13"
+author: "Benjamin Sigbjørnsen, Johan Vik Mathisen, and Martinius Theodor Singdahslen"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  # html_document
+  pdf_document
+---
+  
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE,tidy=TRUE,message=FALSE,warning=FALSE,strip.white=TRUE,prompt=FALSE,
+                     cache=TRUE, size="scriptsize",fig.width=5, fig.height=4,fig.align = "center")
+```
+
+```{r,eval=TRUE,echo=FALSE}
+library("knitr")
+library("rmarkdown")
+library("palmerpenguins")
+library(ggplot2)
+library(sjPlot)
+library(ggpubr)
+```
+
+# Problem 1
+```{r}
+dataset <- read.table("https://www.math.ntnu.no/emner/TMA4315/2018h/jsp2.txt",
+    header = TRUE)
+```
+
+
+## a)
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs(data = dataset, mapping = aes(col = gender), columns = c("social",
+    "raven", "math"), legend = 1)
+```
+In the plot above, we see that the variables social, raven and math are plotted against each other distributed on gender. Social is a categorical variable with four levels. One of the categories in social have a higher frequency than the others, and one of the categories seems to have a higher mean value of raven than the others. Math seems to be evenly distributed between categories. Math and raven are continuous variables. Raven seems to be similar distributed among genders, while math seems to have a higher mean for girls. There is a significant correlation between raven and math. 
+
+```{r}
+#Fitting a linear model
+mod = lm(math ~ raven + gender, data=dataset)
+summary(mod)
+```
+We have a linear model where $Y_k$ is the response variable, $X_k$ are the k-th row in the design matrix containing the covariates, $\beta$ is a vector of coefficient that are found when fitting the model and $\epsilon_k$ are the error of the model
+
+In the summary output above, we can see that both of the covariates are significant. Expected math score increases with raven and if the gender is girl. This is consistent with what we saw in the plot obtained from using the ggpairs plot function.
+
+In this model, we are investigating the linear relationship between the covariates, raven and gender, and the response, math.
+
+## b)
+The components of the random intercept model are:
+
+ * $\textbf{Y}_i$, a response vector that has dimensions $n_i\times 1$ 
+ * $\textbf{X}_i$, a design matrix that has dimensions $n_i\times p$ 
+ * $\beta$, a vector of coefficients that has dimensions $n_i\times 1$ 
+ * $\textbf{1}$, a vector of ones that has dimensions $n_i\times 1$ 
+ * $\gamma_{0i}$, the random effect of school i, dimensions $1 \times 1$ . 
+ * $\epsilon_i$, the random error vector that has dimensions $n_i\times 1$ 
+ 
+We assume $\gamma_{0i}$ ~ $N(0,\tau_0^2)$ and $\epsilon_i$ ~ $N(\textbf{0},\sigma^2\textbf{I})$
+
+We also assume that the responses at different schools are independent of each other.
+
+```{r}
+#Fitting a linear mixed model
+library(lme4)
+fitRI1 <- lmer(math ~ raven + gender + (1 | school), data = dataset)
+summary(fitRI1)
+```
+In the summary output above, we can see that the parameter estimates for `raven` and `gender` are similar to the estimates in the summary output in a). The deviation is less than one standard deviation. This means that adding school as random intercept has little effect on the parameter estimates. 
+
+As in **a)**, we can see that expected math score increases with `raven` and if the `gender` is girl.
+
+There are no $p$-values, and this is also default for the `lmer` function. The reason is that the random effects complicates finding the $p$-value, it is not possible to find a analytical solution with a finite number of observations, we have to approximate.
+
+The test $H_0$ : $\beta_{\text{raven}}=0$ against $H_1$ : $\beta_{\text{raven}}\neq0$ is performed using the anova function.
+```{r}
+#Fitting a linear mixed model without raven as covariate
+fitRI2 <- lmer(math ~ gender + (1 | school), data = dataset)
+#Comparing the two mixed models
+anova(fitRI2, fitRI1)
+```
+The $p$-value given in the output above is less than $2.2*10^{-22}$. This is a $p$-value smaller than any reasonable significant level. We therefore reject $H_0$ and conclude with $H_1$ : $\beta_{raven}\neq0$
+
+```{r}
+confint(fitRI1)
+```
+We see in the summary output above that a $95\%$ confidence interval for the effect of the female gender on the math score is: $[1.99, 3.03]$. 
+
+
+## c)
+
+We will now consider a model where we fit `math` as the response while `raven` is a fixed effect and `school` is a random intercept. Fitting the model we get the summary seen below.
+
+```{r}
+fitRI2 <- lmer(math ~ raven + (1 | school), data = dataset)
+summary(fitRI2)
+```
+
+The covariance between $Y_{ij}$ and $Y_{il}$ is given by,
+
+\begin{align}
+  \text{Cov}(Y_{ij},Y_{il}) = 
+  \begin{cases}
+    \tau_0^2, \quad \quad \quad \  \text{if} \ \ l \neq j \\
+    \tau_0^2 + \sigma^2 , \quad \text{if} \ \ l = j
+  \end{cases},
+\end{align}
+
+while the correlation between $Y_{ij}$ and $Y_{il}$ is given by,
+
+\begin{align}
+  \text{Corr}(Y_{ij},Y_{il}) = 
+  \begin{cases}
+    \dfrac{\tau_0^2}{\tau_0^2 + \sigma^2}, \quad   \text{if} \ \ l \neq j \\
+    1, \quad \quad \quad \quad \ \text{if} \ \ l = j
+  \end{cases}.
+\end{align}
+
+Looking at the summary of the fit of the random intercept model we can see that the correlation of two different responses within the same school ($Y_{ij}$ and $Y_{il}$) is 
+$$\frac{4.002}{20.711 + 4.002}  = 0.162$$ 
+
+
+For the random intercept model we can write the mathematical formula of the predicted random effects in each group as,
+
+\begin{align*}
+  \hat{\gamma}_{0i}  = \dfrac{n_i \hat{\tau}^2_0}{\hat{\sigma}^2_0+n_i \hat{\tau}^2_0} e_i = \dfrac{n_i \hat{\tau}^2_0}{\hat{\sigma}^2_0+n_i \hat{\tau}^2_0} \dfrac{1}{n_i} \sum_{j=1}^{n_i} (y_{ij}-(\hat{\beta}_0+\hat{\beta}_1 x_{ij})),
+\end{align*}
+
+where $e_i$ is the raw mean residual of group $i$. 
+
+We can interpret the formula for $\hat{\gamma}_{0i}$ as the weighted sum of the mean raw residual of the group and the conditional expectation $0$. We can view the mean raw resiuals as for each group as predictions ignoring the random error, and the conditional expectation as ignoring the groups. There would be no difference between any group if $\tau_{0i}=0$ for all $i$. 
+
+The value $n_i \tau_0^2$ represents the intra class covariance (ICC) and $\sigma_0^2$ represents the variance in the entire population. Thus we can see that the weight, 
+
+\begin{align*}
+  \dfrac{n_i \hat{\tau}^2_0}{\hat{\sigma}^2_0+n_i \hat{\tau}^2_0},
+\end{align*}
+
+describes how much information we have gained about the random intercept. If $\sigma_0^2$ is large compared to the ICC it is difficult to distinguish between random noise and the predicted random intercept and we can see that it is closer to zero. In the opposite case it is easier to distinguish and we get that the weight goes towards one. Furthermore, we can see that if $n_i$ is big that the weight approaches one, which does make sense as we obtain more information about the intercept.
+
+
+
+```{r, fig.cap = " "}
+library(ggplot2)
+library(sjPlot)
+gg1 <- plot_model(fitRI2, type = "re", sort.est = "(Intercept)", y.offset = 0.4, dot.size = 1.5) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) + labs(title = "Random intercept (RI)")
+gg2 <- plot_model(fitRI2, type = "diag", prnt.plot = FALSE, title = "Quantile plot", geom.size = 1)
+gg3 <- ggplot() + geom_density(aes(x = ranef(fitRI2)$school[[1]])) + labs(x = "x", y = "y", title = "Density of RI")
+df <- data.frame(fitted = fitted(fitRI2), resid = residuals(fitRI2, scaled = TRUE))
+gg4 <- ggplot(df, aes(fitted,resid)) + geom_point(pch = 21) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_smooth(se = FALSE, col = "red", size = 0.5, method = "loess") +
+  labs(x = "Fitted values", y = "Residuals", title = "Residuals vs Fitted values")
+gg5 <- ggplot(df, aes(sample=resid)) + stat_qq(pch = 19) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dotted") +
+  labs(x = "Theoretical quantiles", y = "Standardized residuals", title = "Normal Q-Q")
+
+library(ggpubr)
+gg2[[2]]$school
+```
+
+This first plot, Figure 1 is a Q-Q plot of the random intercept effect. We can also see that there is a confidence interval drawn around each. Since it is assumed that the random effects is normally distributed it makes sense to plot them in a Q-Q plot to see if the assumption of normality is violated. We can see in this Q-Q plot that the assumption of normality of the random effect seems to hold up quite well. I would like to point out that we have one outlier that has a value of approximately $-7.5$.
+
+
+```{r, fig.cap = " "}
+ggarrange(gg1, gg3, gg4, gg5)
+```
+
+Now we will look at the four different plots in figure 2. 
+
+In the "Random intercept (RI)" plot we have the predicted random intercepts plotted on the x-axis and sorted from lowest to highest. It can be wived as the empirical CDF of the random intercept. We would expect that about half would be grater than zero and this is the case of our CDF plot. Again we see the outlier at $-7.5$.
+
+The plot with titel "Density of RI" is a histogram of the random effects that has been smoothed out by the `geom_density` function to make it represent the probability density function of the random intercept. We can see that it is approximately centered around zero, which we would expect if the model assumptions are not violated. However, compared to the density of the Gaussian, it seems to have a lot of mass centered around zero making it seem pointy. This is however something that can happen when we only have $49$ samples. 
+
+The next plot with the title "Residuals vs Fitted values" is simply the residuals plotted against the predicted math scores. Here as in a linear model (not a LMM) we expect the residuals to have a constant variance (homoscedasticity). This plot seems to indicate that the assumption is not violated. Note that we have some outliers  around $5$ and one at $-10$.
+
+This last plot with the titel "Normal Q-Q" in the group of four plots, is the standardized residuals plotted in a Q-Q plot. This plot shows if the assumption of normality of the residuals is violated. The Q-Q plot for the residuals of our model seem to hold the normality assumption quite well.
+
+º
+```{r, fig.cap = " "}
+df <- data.frame(x = rep(range(dataset$raven), each = 49),
+                 y = coef(fitRI2)$school[,1] + coef(fitRI2)$school[,2] * rep(range(dataset$raven), each = 49),
+                 School = factor(rep(c(1:42, 44:50), times = 2)))
+ggplot(df, aes(x = x, y = y, col = School)) + geom_line()
+```
+
+In this last plot, figure 3 we have plotted the response against the models only covariate `raven` for each school. Since each school has its own intercept and we have $49$ schools we  get $49$ parallel lines in the random intercept model. Here we can clearly see one outlier as we did in the plot "Random intercept (RI)". However, this plot is more to visualize the relationship between `raven` and `math` scores in the different schools when fitting a linear random intercept model. 
+
+## d)
+
+Model with social status of father as fixed effect and ANOVA table of models with and without social status of father as fixed effect.
+```{r}
+fitRI2 <- lmer(math ~ raven + (1 | school), data = dataset)
+fitRI3 <- lmer(math ~ raven + social + (1 | school), data = dataset)
+anova(fitRI2, fitRI3)
+```
+
+```{r}
+fitRI2t <- lmer(math ~ raven + (1 | school), data = dataset, REML = FALSE)
+fitRI3t <- lmer(math ~ raven + social + (1 | school), data = dataset, REML = FALSE)
+anova(fitRI2t, fitRI3t)
+
+```
+
+
+- *Compare the model with and without the social status of the father using hypothesis test from the anova above. Which of the two models do you prefer?*
+
+From the anova table above we see that the p-value is $0.043$. This is significant at significance level $0.05$. We would thus prefer the larger model including `social` as a fixed effect.
+
+- *Comment on the AIC and BIC*
+
+By looking at the ANOVA table we see that the AIC is lower and the BIC is higher for the larger model than for the smaller. As the AIC and BIC penalizes the number of parameters differently, and BIC scales the penalty by a factor depending on sample size. We know that selecting model based on AIC gives gives a possibility of overfitting, and by BIC a possibility of underfitting. 
+
+- *Why does the print out say “refitting model(s) with ML (instead of REML)".* 
+  -  *why do we not want REML when comparing models with the same random terms but with different fixed terms?*
+
+The print out does not say “refitting model(s) with ML (instead of REML)". The default for `lmer()` is REML, but as we see above the ANOVA tables when fitted with REML and ML are the same. This is likely because ANOVA refits the models with ML, but a sortware update has removed the info from the print out.
+ 
+The reason for not using REML when comparing models with the same random terms is that the REML estimates the random effects by considering linear combinations of the data that remove the fixed effects (the transformation method). If the fixed effects are changed, the likelihoods of the two models will not be directly comparable. 
+
+
+
+Random intercept and random slope model.
+
+```{r}
+
+fitRIS <- lmer(math ~ raven + (1 + raven | school), data = dataset)
+summary(fitRIS)
+```
+
+
+```{r}
+df <- data.frame(x = rep(range(dataset$raven), each = 49),
+                 y = coef(fitRIS)$school[,1] + 
+                 coef(fitRIS)$school[,2] * rep(range(dataset$raven), each = 49),
+                 School = factor(rep(c(1:42, 44:50), times = 2)))
+gg1 <- ggplot(df, aes(x = x, y = y, col = School)) + geom_line()
+
+gg2 <- plot_model(fitRIS, type = "re", sort.est = "(Intercept)", y.offset = 0.4, dot.size = 1.5) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  labs(title = "Random intercept (RI)")
+
+ggarrange(gg1, gg2, ncol = 2, legend = FALSE)
+```
+
+*Write the mathematical formula for the random intercept and slope model and comment on what you see from fitting the model.*
+
+For each school $i = 1,...,50$ but not $43$:
+
+$$ Y_i = X_i \beta + U_i \gamma_i + \varepsilon_i $$
+The global model is 
+
+$$ Y = X \beta + U \gamma + \varepsilon $$
+Where $U$ is block diagonal and $Y,X,\gamma$ and $\varepsilon$ are just all school specific versions concatenated. 
+
+
+## e)
+ 
+*Now imagine that we want to model the probability for a student to fail maths instead of the the individual grades given in maths. A student fails if they score less than -10.*
+
+- *Why is it not suitable to use a linear mixed effects model?*
+
+The range of the predictions of an LMM can be, as for a LM, greater than the interval $[0,1]$, making it unsuitable for modelling probabilities.
+
+- *What type of model would be more suitable? (hint: IL module 7)*
+
+A GLMM would be more suitable to this problem. In particular a Binomial (with $n=1$) random intercept model.
+
+- *How would we add a random school intercept into this model (in which part of the model)?*
+
+We add the random intercept to the linear predictor $\eta_{ij}$, similarly to how we add the random intercept to a linear model. 
+
+- *What is the main challenge with this type of models? (hint: marginal model)*
+
+In order to to parameter estimation we need the marginals $f(y_{ij}) = \int_{\gamma_i}f(y_{ij}|\gamma_i)f(\gamma_i)d\gamma_i$. As general exponential family is not closed under conditioning, the conditionals $f(y_{ij}|\gamma_i)$ are often times intractible. In order to do parameter estimation we must use numerics and computer intensive methods. 
+
+- *Fit the equivalent model to fitRI1, and comment on the differences in the model inferences.*
+
+First transform the `math` covariate to binary pass = 1 and fail = 0, then fit a binomial random intercept model. 
+
+```{r}
+pass_fail <- function(x){
+    if(x < -10){
+        return(0)
+    }
+    else{
+        return(1)
+    }
+}
+dataset$math <- lapply(dataset$math, pass_fail)
+dataset$math <- as.integer(dataset$math)
+dataset$math <- factor(dataset$math)
+
+
+fitRI1GLMM <- glmer(math ~ raven + gender + (1 | school), data = dataset, family = binomial(link = "logit"))
+
+```
+
+```{r}
+
+summary(fitRI1GLMM)
+
+```
+
+ 
